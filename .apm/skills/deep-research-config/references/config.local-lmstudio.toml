@@ -1,0 +1,154 @@
+# Deep Research — Local Config: lmstudio
+# Replace 'lmstudio:heavy' / 'lmstudio:light' with your loaded model names.
+# LM Studio → Local Server tab, copy the identifier from the model dropdown.
+# Example: lmstudio:lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF
+
+# Deep Research Pipeline — Configuration
+# ======================================
+# Edit this file to enable/disable pipeline steps, swap providers, set thresholds.
+# The orchestrator reads this file at startup. Restart a session after changes.
+
+[pipeline]
+output_dir    = "notes/research/{date}-{slug}/"
+max_tokens    = 500_000
+timeout_min   = 60
+
+# Dimensions every session must cover (add/remove freely)
+dimensions = [
+  "historical",      # How did we get here?
+  "current_state",   # What works today?
+  "stakeholders",    # Who is involved?
+  "challenges",      # What doesn't work?
+  "future",          # Where is this going?
+]
+
+
+# ── Gather tracks ───────────────────────────────────────────────────────────────
+# Set to false to skip a track entirely (it will not count against Gate 1 counts)
+
+[gather]
+web       = true    # agent: gather-web       — Tavily / web search
+scholar   = true    # agent: gather-scholar   — Semantic Scholar
+codebase  = true    # agent: gather-codebase  — local workspace
+knowledge = true    # agent: gather-knowledge — Zettelkasten / Obsidian
+bookmarks = true    # agent: gather-bookmarks — Raindrop / Pocket
+pdf       = false   # agent: gather-pdf       — download + extract PDFs
+
+
+# ── Synthesis steps ─────────────────────────────────────────────────────────────
+
+[synthesis]
+brief     = true   # agent: synthesize-brief     — executive summary
+narrative = true   # agent: synthesize-narrative — full long-form report
+forward   = true   # agent: synthesize-forward   — hypotheses + open questions
+
+
+# ── Knowledge capture ───────────────────────────────────────────────────────────
+
+[capture]
+knowledge = true   # agent: capture-knowledge — write Zettelkasten notes
+bookmarks = true   # agent: capture-bookmarks — archive sources to bookmark svc
+
+
+# ── Quality gates ────────────────────────────────────────────────────────────────
+# on_fail: "retry" | "warn" | "abort"
+
+[gates.gather]
+min_sources          = 15
+min_source_categories = 3
+all_dimensions       = true
+on_fail              = "retry"
+max_retries          = 2
+
+[gates.process]
+min_tier_1_2_sources = 3
+duplicates_removed   = true
+on_fail              = "retry"
+max_retries          = 1
+
+[gates.extract]
+all_tier_1_3_extracted = true
+pdfs_analyzed          = false   # flipped to true automatically when gather.pdf = true
+on_fail                = "retry"
+max_retries            = 1
+
+[gates.evaluate]
+claims_map_required      = true
+citations_required       = true
+fact_check_required      = true
+contradictions_logged    = true
+on_fail                  = "warn"
+max_retries              = 0
+
+[gates.synthesize]
+required_artifacts = [
+  "brief",
+  "evidence/claims-map",
+  "forward/open-questions",
+]
+narrative_has_citations = true
+on_fail                 = "retry"
+max_retries             = 1
+
+
+# ── Models ──────────────────────────────────────────────────────────────────────
+# IMPORTANT: orchestrator model sets the ceiling — subagents cannot use a more
+# expensive model than the one used to start the orchestrator session.
+# See docs/model-routing.md for full explanation.
+
+[models]
+orchestrator         = "lmstudio:heavy"   # 3x — sets ceiling
+gather               = "lmstudio:light"    # 0.33x — mechanical I/O
+process              = "lmstudio:light"    # 0.33x — mechanical
+extract              = "lmstudio:heavy"   # 3x   — structured reading
+evaluate             = "lmstudio:heavy"   # 3x   — reasoning
+cite                 = "lmstudio:light"    # 0.33x — mechanical BibTeX
+synthesize_brief     = "lmstudio:heavy"   # 3x
+synthesize_narrative = "lmstudio:heavy"     # 3x   — most reasoning-heavy
+synthesize_forward   = "lmstudio:heavy"   # 3x
+capture              = "lmstudio:light"    # 0.33x — mechanical writes
+
+
+# ── Providers ───────────────────────────────────────────────────────────────────
+
+[providers.web]
+provider            = "searxng"
+queries_per_session = 50   # no rate limit locally
+search_depth        = "advanced"
+include_domains     = []
+exclude_domains     = []
+
+[providers.scholar]
+provider          = "zotero"
+max_results       = 20
+min_citations     = 10
+year_range        = [2022, 2026]
+
+[providers.knowledge]
+mcp_server      = "#zettelkasten"
+traversal_depth = 2
+
+[providers.bookmarks]
+mcp_server  = "#raindrop"
+collection  = "Research"
+auto_tier   = 3              # bookmark sources rated Tier 3 or above
+
+[providers.pdf]
+download_sources = ["arxiv", "unpaywall", "semantic_scholar"]
+reading_methods  = ["keshav_three_pass", "five_cs", "pacheco_vega_aic"]
+
+
+# ── Citation ─────────────────────────────────────────────────────────────────────
+
+[citation]
+format         = "bibtex"
+output_file    = "references/citations.bib"
+auto_doi       = true
+citekey_format = "{author}{year}{keyword}"
+
+
+# ── Diagrams ─────────────────────────────────────────────────────────────────────
+
+[diagrams]
+mermaid_direction = "TB"
+drawio_on_request = true   # draw.io only generated when user explicitly asks

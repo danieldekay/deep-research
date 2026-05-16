@@ -1,0 +1,60 @@
+name: danieldekay/deep-research
+version: 0.1.0
+description: >
+  Modular multi-agent deep research pipeline. 18 agents across 6 phases
+  (gather, process, extract, evaluate, synthesize, capture) with parallel
+  execution, quality gates, evidence evaluation, citation management, and
+  knowledge capture. Configure tracks and features via config.toml.
+author: Daniel de Kay
+license: MIT
+target: [copilot, claude]
+type: hybrid
+includes: auto
+
+scripts:
+  start: "copilot -p '.apm/prompts/deep-research.prompt.md'"
+
+compilation:
+  strategy: distributed
+  exclude:
+    - "apm_modules/**"
+    - "notes/**"
+
+dependencies:
+  apm: []
+
+  # ── Local provider MCPs (deep-research-config skill) ────────────────────────
+  # These are only required when using a local provider profile.
+  # Comment out any service you are not running.
+  # After editing, run: apm compile
+  mcp:
+    # Local LLM — uncomment your preferred backend (only one at a time)
+    - name: ollama
+      registry: false
+      transport: http
+      url: http://localhost:11434/api
+    # - name: lmstudio
+    #   registry: false
+    #   transport: http
+    #   url: http://localhost:1234/v1
+    # - name: mlx-lm
+    #   registry: false
+    #   transport: http
+    #   url: http://localhost:8080/v1
+
+    # Local web search (replaces Tavily when providers.web.provider = "searxng")
+    - name: searxng
+      registry: false
+      transport: http
+      url: http://localhost:8888
+
+    # Zotero reference manager (replaces Scholar API)
+    # Requires: Zotero desktop open + Better BibTeX plugin + zotero-mcp bridge
+    - name: zotero
+      registry: false
+      transport: stdio
+      command: npx
+      args: ["-y", "zotero-mcp"]
+      env:
+        ZOTERO_API_KEY: ${{ secrets.ZOTERO_API_KEY }}
+        ZOTERO_USER_ID: ${{ secrets.ZOTERO_USER_ID }}
